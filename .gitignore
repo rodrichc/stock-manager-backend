@@ -1,0 +1,15 @@
+# Base de datos
+db.sqlite3
+
+# Archivos de Excel/CSV personales
+*.csv
+*.xlsx
+
+# Entornos virtuales
+env/
+venv/
+__pycache__/
+.env
+
+# Archivos del sistema
+.DS_Store
