@@ -9,9 +9,9 @@ from rest_framework import status, generics
 from decimal import Decimal
 from django.contrib.auth import get_user_model
 
-from api.utils.mwr import calcular_portfolio_sombra_spy
+from api.services.mwr import calcular_portfolio_sombra_spy
 from .models import Activo, HistoricoActivo, HistoricoPortfolio, Operacion, Posicion, Cuenta
-from .utils.twr import calcular_twr_periodo
+from .services.twr import calcular_twr_periodo
 from .serializers import OperacionSerializer, ListarOperacionSerializer, RegistroSerializer
 
 
