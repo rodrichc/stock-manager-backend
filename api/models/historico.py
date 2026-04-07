@@ -1,21 +1,26 @@
 from django.conf import settings 
 from django.db import models
+from django.utils import timezone 
 from .activo import Activo
 
 class HistoricoPortfolio(models.Model):
-    # <-- NUEVO: Le decimos a quién le pertenece esta foto del portfolio
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True) 
     
-    fecha = models.DateField(auto_now_add=True)
+    # Cambiamos auto_now_add para tener flexibilidad de guardar fechas pasadas
+    fecha = models.DateField(default=timezone.now)
     total_invertido_usd = models.DecimalField(max_digits=15, decimal_places=2)
     valor_actual_usd = models.DecimalField(max_digits=15, decimal_places=2)
+
+    # --- NUEVO: La foto del SPY de ese exacto día ---
+    precio_spy_usd = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     class Meta:
         app_label = 'api'
         ordering = ['-fecha']
+        # ESCUDO: Evita que se creen 5 fotos el mismo día si el usuario aprieta mucho el botón
+        unique_together = ('usuario', 'fecha') 
 
     def __str__(self):
-        # Le sumamos el nombre para que en el Admin sepas de quién es la foto
         username = self.usuario.username if self.usuario else "Sin Usuario"
         return f"Portfolio de {username} - {self.fecha}"
 

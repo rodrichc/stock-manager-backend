@@ -186,60 +186,52 @@ def evolucion_activo(request, ticker):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def rendimiento_real(request):
-    fecha_inicio = request.query_params.get('inicio')
-    fecha_fin = request.query_params.get('fin')
+    fecha_inicio_str = request.query_params.get('inicio')
+    fecha_fin_str = request.query_params.get('fin')
     
-    if not fecha_inicio or not fecha_fin:
+    if not fecha_inicio_str or not fecha_fin_str:
         return Response({"error": "Faltan las fechas de inicio y fin"}, status=400)
-    
-    # 1. Calculamos tu TWR (Tu ganancia real aislada de tus depósitos/retiros)
-    resultado_twr = calcular_twr_periodo(request.user, fecha_inicio, fecha_fin)
-    
-    print(resultado_twr)
 
-# 2. Calculamos el rendimiento del SPY para el mismo exacto periodo
+    # 1. BUSCAMOS LAS FOTOS SEGURAS EN LA BASE DE DATOS
+    # Si le pasamos un domingo, esto busca automáticamente la foto del viernes.
+    foto_inicio = HistoricoPortfolio.objects.filter(
+        usuario=request.user, 
+        fecha__lte=fecha_inicio_str
+    ).order_by('-fecha').first()
+    
+    foto_fin = HistoricoPortfolio.objects.filter(
+        usuario=request.user, 
+        fecha__lte=fecha_fin_str
+    ).order_by('-fecha').first()
+
+    if not foto_inicio or not foto_fin:
+        return Response({"error": "No hay fotos del portfolio guardadas cerca de esas fechas."}, status=400)
+
+    # Guardamos las fechas REALES de las fotos que encontramos
+    fecha_inicio_real = foto_inicio.fecha
+    fecha_fin_real = foto_fin.fecha
+
+    # 2. Calculamos tu TWR pasándole las fechas reales (para evitar que devuelva 0 por buscar un domingo)
+    resultado_twr = calcular_twr_periodo(request.user, fecha_inicio_real, fecha_fin_real)
+
+    # 3. Calculamos el rendimiento del SPY usando tu base de datos (¡Chau Yahoo Finance!)
     rendimiento_spy = Decimal('0.0')
-    try:
-        fecha_inicio_dt = datetime.strptime(fecha_inicio, '%Y-%m-%d')
-        fecha_inicio_segura = (fecha_inicio_dt - timedelta(days=5)).strftime('%Y-%m-%d')
-        
-        fecha_fin_dt = datetime.strptime(fecha_fin, '%Y-%m-%d') + timedelta(days=1)
-        fecha_fin_yf = fecha_fin_dt.strftime('%Y-%m-%d')
-        
-        import logging
-        logging.getLogger('yfinance').setLevel(logging.CRITICAL) 
-        
-        spy_data = yf.download('SPY', start=fecha_inicio_segura, end=fecha_fin_yf, progress=False)
-        
-        if not spy_data.empty:
-            # EL ARREGLO: .squeeze() rompe la tabla anidada de yfinance y nos deja solo los números puros
-            close_data = spy_data['Close'].squeeze()
-            
-            # Filtramos usando nuestra nueva lista de números limpios
-            data_inicio = close_data[close_data.index <= fecha_inicio]
-            
-            if not data_inicio.empty:
-                precio_inicio = Decimal(str(float(data_inicio.iloc[-1])))
-            else:
-                precio_inicio = Decimal(str(float(close_data.iloc[0])))
-                
-            precio_fin = Decimal(str(float(close_data.iloc[-1])))
-            
-            # Matemática del rendimiento
-            rendimiento_spy = round(((precio_fin / precio_inicio) - Decimal('1.0')) * Decimal('100.0'), 2)
-            
-    except Exception as e:
-        print(f"Error al traer el SPY desde Yahoo Finance: {e}")
-        rendimiento_spy = Decimal('0.0')
+    precio_spy_ini = foto_inicio.precio_spy_usd
+    precio_spy_fin = foto_fin.precio_spy_usd
 
-    # 3. Calculamos la diferencia (El famoso "Alpha")
+    if precio_spy_ini and precio_spy_fin and precio_spy_ini > Decimal('0.0'):
+        # La matemática del rendimiento. Si es el mismo día, naturalmente da 0.
+        rendimiento_spy = round(((precio_spy_fin / precio_spy_ini) - Decimal('1.0')) * Decimal('100.0'), 2)
+
+    # 4. Calculamos la diferencia (El famoso "Alpha")
     diferencia_vs_spy = resultado_twr - rendimiento_spy
 
     return Response({
-        "periodo": f"{fecha_inicio} al {fecha_fin}",
+        "periodo_solicitado": f"{fecha_inicio_str} al {fecha_fin_str}",
+        "periodo_real_evaluado": f"{fecha_inicio_real} al {fecha_fin_real}",
         "tu_rendimiento_twr": resultado_twr,
         "rendimiento_spy": rendimiento_spy,
-        "alpha_diferencia": diferencia_vs_spy # Si es positivo, le ganaste al mercado. Si es negativo, ganó el SPY.
+        "alpha_diferencia": diferencia_vs_spy
     })
 
 # 6. Cargar Compra o Venta
