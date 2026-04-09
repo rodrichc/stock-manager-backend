@@ -1,9 +1,10 @@
 from django.core.management.base import BaseCommand
-from api.models import Activo, HistoricoPortfolio, HistoricoActivo, Posicion
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from decimal import Decimal
 import yfinance as yf
+from api.models import Activo, HistoricoPortfolio, HistoricoActivo, Posicion
+from api.services.mwr import calcular_portfolio_sombra_spy
 
 User = get_user_model()
 
@@ -36,8 +37,6 @@ class Command(BaseCommand):
             if not spy_data.empty:
                 close_spy = spy_data['Close'].squeeze()
                 
-                # BLINDAJE: Si squeeze() lo dejó como un número suelto, lo usamos directo.
-                # Si lo dejó como una serie/lista de pandas, usamos .iloc[-1]
                 if isinstance(close_spy, (float, int)) or type(close_spy).__name__ == 'float64':
                     valor_final = float(close_spy)
                 else:
@@ -53,7 +52,7 @@ class Command(BaseCommand):
         # ==========================================
         self.stdout.write(self.style.WARNING('\n2. Procesando portfolios de usuarios...'))
         usuarios = User.objects.all()
-        hoy = timezone.now().date() # <--- Fecha exacta de hoy para buscar la foto
+        hoy = timezone.now().date() 
 
         for usuario in usuarios:
             total_bolsillo = Decimal('0.0')
@@ -85,20 +84,32 @@ class Command(BaseCommand):
                         'invertido': invertido
                     })
 
+            # === NUEVO: Calculamos la Sombra para este usuario ===
+            valor_sombra = None
+            costo_base_sombra = None
+            
+            resultado_sombra = calcular_portfolio_sombra_spy(usuario)
+            if resultado_sombra:
+                valor_sombra = resultado_sombra['resumen']['portfolio_sombra_spy_usd']
+                costo_base_sombra = resultado_sombra['resumen']['capital_bolsillo_usd']
+            # =====================================================
+
             # Guardamos la foto global de ESTE usuario usando update_or_create
             if total_bolsillo > 0:
                 foto_global, created = HistoricoPortfolio.objects.update_or_create(
                     usuario=usuario,
-                    fecha=hoy, # Clave de búsqueda 1
+                    fecha=hoy,
                     defaults={
                         'total_invertido_usd': total_bolsillo,
                         'valor_actual_usd': total_actual,
-                        'precio_spy_usd': precio_spy_hoy if precio_spy_hoy > 0 else None
+                        'precio_spy_usd': precio_spy_hoy if precio_spy_hoy > 0 else None,
+                        # === NUEVO: Guardamos los datos en la base ===
+                        'valor_sombra_spy_usd': valor_sombra,
+                        'costo_base_sombra_usd': costo_base_sombra
                     }
                 )
 
                 # Si la foto ya existía (created es False), borramos el detalle viejo de hoy 
-                # para que no se dupliquen las filas en la tabla HistoricoActivo
                 if not created:
                     HistoricoActivo.objects.filter(snapshot_global=foto_global).delete()
 
@@ -115,3 +126,4 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS(f'   [OK] Foto de {usuario.username} guardada con éxito.'))
 
         self.stdout.write(self.style.SUCCESS('\n¡Proceso finalizado!'))
+        

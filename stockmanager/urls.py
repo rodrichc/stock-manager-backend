@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.urls import path
-from api.views import resumen_portfolio, detalle_portfolio, evolucion_activo, evolucion_portfolio, rendimiento_real, cargar_operacion, listar_operaciones, listar_operaciones_por_activo, comparativa_sombra_spy, importar_csv_broker,RegistroUsuarioView
+from api.views import resumen_portfolio, detalle_portfolio, evolucion_activo, evolucion_portfolio, rendimiento_real, cargar_operacion, listar_operaciones, listar_operaciones_por_activo, comparativa_sombra_spy, importar_csv_broker, datos_grafico_mwr, RegistroUsuarioView
 
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -21,6 +21,7 @@ urlpatterns = [
     path('portfolio/evolucion/<str:ticker>/', evolucion_activo),
     path('portfolio/rendimiento-real', rendimiento_real),
     path('portfolio/rendimiento-sombra/', comparativa_sombra_spy),
+    path('portfolio/grafico-sombra/', datos_grafico_mwr),
     
     path('operaciones/cargar/', cargar_operacion),
     path('operaciones/cargar/csv', importar_csv_broker),

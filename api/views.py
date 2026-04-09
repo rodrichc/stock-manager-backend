@@ -1,7 +1,9 @@
 import yfinance as yf
+import logging
 import csv
 import io
 from datetime import datetime, timedelta
+from collections import defaultdict
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
@@ -280,61 +282,18 @@ class RegistroUsuarioView(generics.CreateAPIView):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def comparativa_sombra_spy(request):
-    # 1. Calculamos cuánto vale tu portfolio REAL hoy
-    posiciones = Posicion.objects.filter(usuario=request.user, cantidad_nominales__gt=0)
+    # Ya no iteramos sobre Posiciones. La Mega Función hace todo el trabajo.
+    resultado_completo = calcular_portfolio_sombra_spy(request.user)
     
-    total_bolsillo = Decimal('0.0')
-    total_actual = Decimal('0.0')
-
-    for pos in posiciones:
-        acciones_enteras = Decimal(str(pos.cantidad_nominales)) / Decimal(str(pos.activo.ratio))
-        promedio = pos.precio_promedio_usd
-        actual = pos.activo.precio_actual_usd
-        
-        if promedio is not None and actual is not None:
-            total_bolsillo += (acciones_enteras * promedio)
-            total_actual += (acciones_enteras * actual)
-            
-    # 2. Corremos la simulación de la Sombra
-    resultado_sombra = calcular_portfolio_sombra_spy(request.user)
-    
-    if not resultado_sombra:
+    if not resultado_completo:
         return Response({"error": "No hay operaciones suficientes o falló Yahoo Finance"}, status=400)
         
-    valor_sombra_usd = resultado_sombra['valor_sombra_spy_usd']
-
-   # 3. Rendimiento % (con protección por si vaciaste la cuenta)
-    rendimiento_spy = Decimal('0.0')
-    rendimiento_portfolio = Decimal('0.0')
-
-    if total_bolsillo > Decimal('0.0'):
-        # Pasamos a Decimal el valor que viene del diccionario por las dudas
-        valor_sombra_decimal = Decimal(str(resultado_sombra['valor_sombra_spy_usd']))
-        
-        # ¡Multiplicamos por 100.0 para que sea porcentaje!
-        rendimiento_spy = ((valor_sombra_decimal - total_bolsillo) / total_bolsillo) * Decimal('100.0')
-        rendimiento_portfolio = ((total_actual - total_bolsillo) / total_bolsillo) * Decimal('100.0')
-
-    print(rendimiento_spy)
+    resumen = resultado_completo['resumen']
     
-    # 3. La verdad de la milanesa: El "Alpha" en dólares
-    alpha_usd = total_actual - valor_sombra_usd
+    # Le agregamos quién va ganando para el cartelito rojo/verde
+    resumen["ganador"] = "Usuario" if resumen["diferencia_alpha_usd"] > 0 else "SPY"
     
-    # Si alpha es positivo -> Sos mejor que el SPY.
-    # Si alpha es negativo -> El SPY te ganó.
-    
-    return Response({
-        "capital_bolsillo_usd": resultado_sombra['capital_invertido_usd'],
-        "tu_portfolio_real_usd": round(total_actual, 2),
-  
-        "tu_portfolio_real_porcentaje": round(rendimiento_portfolio, 2), 
-        
-        "portfolio_sombra_spy_usd": resultado_sombra['valor_sombra_spy_usd'],
-        "portfolio_sombra_spy_porcentaje": round(rendimiento_spy, 2),
-        
-        "diferencia_alpha_usd": round(alpha_usd, 2),
-        "ganador": "Usuario" if alpha_usd > 0 else "SPY"
-    })
+    return Response(resumen)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -413,3 +372,12 @@ def importar_csv_broker(request):
         "operaciones_creadas": operaciones_creadas,
         "tickers_no_encontrados": list(errores_activos)
     })
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def datos_grafico_mwr(request):
+    resultado = calcular_portfolio_sombra_spy(request.user)
+    if not resultado:
+        return Response({"error": "No se pudo calcular el rendimiento."}, status=400)
+    return Response(resultado['grafico'])
+    

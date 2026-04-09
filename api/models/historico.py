@@ -14,6 +14,10 @@ class HistoricoPortfolio(models.Model):
     # --- NUEVO: La foto del SPY de ese exacto día ---
     precio_spy_usd = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
+    valor_sombra_spy_usd = models.DecimalField(max_digits=15, decimal_places=2, null=True)
+    costo_base_sombra_usd = models.DecimalField(max_digits=15, decimal_places=2,
+    null=True)
+
     class Meta:
         app_label = 'api'
         ordering = ['-fecha']
