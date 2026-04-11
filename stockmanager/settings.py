@@ -2,6 +2,7 @@
 Django settings for stockmanager project.
 """
 import os
+import dj_database_url
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
@@ -14,9 +15,10 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 # 3. Asignamos las variables de entorno
 SECRET_KEY = os.environ.get('SECRET_KEY')
-DEBUG = True
+DEBUG = DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = []
+hosts_env = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1")
+ALLOWED_HOSTS = [h.strip() for h in hosts_env.split(",") if h]
 
 # --- APPLICATION DEFINITION ---
 INSTALLED_APPS = [
@@ -36,6 +38,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -63,12 +66,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'stockmanager.wsgi.application'
 
-# --- DATABASE ---
+# --- DATABASE --
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default=os.getenv('DATABASE_URL'),
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 }
 
 # --- PASSWORD VALIDATION ---
@@ -89,10 +93,8 @@ STATIC_URL = 'static/'
 AUTH_USER_MODEL = 'api.Usuario'
 
 # --- CONFIGURACIÓN DE CORS ---
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:4200",
-    "http://127.0.0.1:4200",
-]
+cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
+CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_origins.split(",") if origin]
 
 # --- CONFIGURACIÓN DE SEGURIDAD JWT ---
 REST_FRAMEWORK = {
