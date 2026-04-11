@@ -1,4 +1,4 @@
-asgiref==3.11.1
+﻿asgiref==3.11.1
 beautifulsoup4==4.14.3
 certifi==2026.2.25
 cffi==2.0.0
@@ -10,9 +10,11 @@ django-cors-headers==4.9.0
 djangorestframework==3.17.1
 djangorestframework_simplejwt==5.5.1
 frozendict==2.4.7
+gunicorn==25.3.0
 idna==3.11
 multitasking==0.0.12
 numpy==2.4.4
+packaging==26.0
 pandas==3.0.2
 peewee==4.0.4
 platformdirs==4.9.4
