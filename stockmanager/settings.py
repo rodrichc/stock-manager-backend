@@ -22,6 +22,7 @@ ALLOWED_HOSTS = [h.strip() for h in hosts_env.split(",") if h]
 
 # --- APPLICATION DEFINITION ---
 INSTALLED_APPS = [
+    'whitenoise.runserver_nostatic',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
