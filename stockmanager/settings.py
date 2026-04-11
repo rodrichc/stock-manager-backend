@@ -96,6 +96,12 @@ AUTH_USER_MODEL = 'api.Usuario'
 cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_origins.split(",") if origin]
 
+# --- CONFIGURACIÓN DE CSRF ---
+csrf_env = os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:4200")
+CSRF_TRUSTED_ORIGINS = [url.strip() for url in csrf_env.split(",") if url]
+
+CSRF_COOKIE_HTTPONLY = False
+
 # --- CONFIGURACIÓN DE SEGURIDAD JWT ---
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
