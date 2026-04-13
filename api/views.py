@@ -1,9 +1,6 @@
-import yfinance as yf
-import logging
 import csv
 import io
-from datetime import datetime, timedelta
-from collections import defaultdict
+from datetime import datetime
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
@@ -12,73 +9,20 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 
 from api.services.mwr import calcular_portfolio_sombra_spy
-from .models import Activo, HistoricoActivo, HistoricoPortfolio, Operacion, Posicion, Cuenta
+from .models import Activo, HistoricoActivo, HistoricoPortfolio, Operacion, Posicion
 from .services.twr import calcular_twr_periodo
 from .serializers import OperacionSerializer, ListarOperacionSerializer, RegistroSerializer
+from api.services.portfolio.resumen import calcular_resumen_portfolio
 
 
 User = get_user_model()
 
 
-# 1. Resumen Global (Ahora incluye la Billetera)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def resumen_portfolio(request):
-    # 1. Calculamos el total actual (tu código existente)
-    posiciones = Posicion.objects.filter(usuario=request.user, cantidad_nominales__gt=0)
-    
-    total_bolsillo = Decimal('0.0')
-    total_actual = Decimal('0.0')
-
-    for pos in posiciones:
-        acciones_enteras = Decimal(str(pos.cantidad_nominales)) / Decimal(str(pos.activo.ratio))
-        promedio = pos.precio_promedio_usd
-        actual = pos.activo.precio_actual_usd
-        
-        if promedio is not None and actual is not None:
-            total_bolsillo += (acciones_enteras * promedio)
-            total_actual += (acciones_enteras * actual)
-
-    rendimiento_global = Decimal('0.0')
-    if total_bolsillo > Decimal('0.0'):
-        rendimiento_global = ((total_actual / total_bolsillo) - Decimal('1.0')) * Decimal('100.0')
-
-    # ==========================================
-    # NUEVO: CÁLCULO DEL RENDIMIENTO DIARIO
-    # ==========================================
-    # Buscamos la última foto del portfolio (generalmente el cierre de ayer)
-    ultima_foto = HistoricoPortfolio.objects.filter(usuario=request.user).order_by('-fecha').first()
-    
-    ganancia_diaria_usd = Decimal('0.0')
-    rendimiento_diario_porcentaje = Decimal('0.0')
-
-    if ultima_foto and ultima_foto.valor_actual_usd > Decimal('0.0'):
-        # Cuántos dólares subió o bajó HOY respecto a la foto de ayer
-        ganancia_diaria_usd = total_actual - ultima_foto.valor_actual_usd
-        
-        # Porcentaje de variación diaria
-        rendimiento_diario_porcentaje = (ganancia_diaria_usd / ultima_foto.valor_actual_usd) * Decimal('100.0')
-
-    # Buscamos la cuenta del usuario
-    cuenta = Cuenta.objects.filter(usuario=request.user).first()
-    
-    # Si por alguna razón no tiene cuenta, ponemos todo en 0 para que no explote
-    ganancia_realizada = cuenta.ganancia_realizada_historica_usd if cuenta else Decimal('0.0')
-    # liquidez_ars = cuenta.saldo_ars if cuenta else Decimal('0.0')
-    # liquidez_usd = cuenta.saldo_usd if cuenta else Decimal('0.0')
-
-    return Response({
-        "capital_invertido_usd": round(total_bolsillo, 2),
-        "valor_actual_usd": round(total_actual, 2),
-        "ganancia_neta_usd": round(total_actual - total_bolsillo, 2),
-        "rendimiento_global_porcentaje": round(rendimiento_global, 2),
-        
-        # --- Mandamos la data fresca del día a Angular ---
-        "ganancia_diaria_usd": round(ganancia_diaria_usd, 2),
-        "rendimiento_diario_porcentaje": round(rendimiento_diario_porcentaje, 2),
-        
-        "ganancia_realizada": round(ganancia_realizada, 2),
-    })
+    data = calcular_resumen_portfolio(request.user)
+    return Response(data)
 
 # 2. Detalle de Tenencias por Acción
 @api_view(['GET'])
