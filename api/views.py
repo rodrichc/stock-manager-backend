@@ -9,12 +9,12 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 
 from api.services.mwr import calcular_portfolio_sombra_spy
-from .models import Activo, HistoricoActivo, HistoricoPortfolio, Operacion
+from .models import Activo, HistoricoPortfolio, Operacion
 from .services.twr import calcular_twr_periodo
 from .serializers import OperacionSerializer, ListarOperacionSerializer, RegistroSerializer
 from api.services.portfolio.resumen import calcular_resumen_portfolio
 from api.services.portfolio.detalle import calcular_detalle_portfolio
-from api.services.portfolio.evolucion import obtener_evolucion_portfolio
+from api.services.portfolio.evolucion import obtener_evolucion_portfolio, obtener_evolucion_activo
 
 
 User = get_user_model()
@@ -26,11 +26,13 @@ def resumen_portfolio(request):
     data = calcular_resumen_portfolio(request.user)
     return Response(data)
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def detalle_portfolio(request):
     data = calcular_detalle_portfolio(request.user)
     return Response(data)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -38,37 +40,14 @@ def evolucion_portfolio(request):
     data = obtener_evolucion_portfolio(request.user)
     return Response(data)
 
-# 4. Evolución de un Activo específico
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def evolucion_activo(request, ticker):
-    activo = Activo.objects.filter(ticker=ticker.upper()).first()
-    if not activo:
-        return Response([])
-
-    # Filtramos para que solo vea SUS fotos históricas
-    detalles = HistoricoActivo.objects.filter(
-        snapshot_global__usuario=request.user, 
-        activo=activo
-    ).order_by('snapshot_global__fecha')
-    
-    data = []
-    for d in detalles:
-        acciones_enteras = Decimal(str(d.nominales)) / Decimal(str(activo.ratio))
-        valor_posicion = acciones_enteras * d.precio_usd_diario
-        
-        data.append({
-            "fecha": d.snapshot_global.fecha,
-            "nominales": d.nominales,
-            "precio_usd": d.precio_usd_diario,
-            "cantidad_invertida": d.cantidad_invertida_usd,
-            "valor_posicion": round(valor_posicion, 2),
-            "ganancia": round(valor_posicion - d.cantidad_invertida_usd, 2)
-        })
-    
+    data = obtener_evolucion_activo(request.usuario, ticker)
     return Response(data)
 
-# 5. Rendimiento Real (TWR)
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def rendimiento_real(request):
