@@ -9,11 +9,12 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 
 from api.services.mwr import calcular_portfolio_sombra_spy
-from .models import Activo, HistoricoActivo, HistoricoPortfolio, Operacion, Posicion
+from .models import Activo, HistoricoActivo, HistoricoPortfolio, Operacion
 from .services.twr import calcular_twr_periodo
 from .serializers import OperacionSerializer, ListarOperacionSerializer, RegistroSerializer
 from api.services.portfolio.resumen import calcular_resumen_portfolio
 from api.services.portfolio.detalle import calcular_detalle_portfolio
+from api.services.portfolio.evolucion import obtener_evolucion_portfolio
 
 
 User = get_user_model()
@@ -31,22 +32,10 @@ def detalle_portfolio(request):
     data = calcular_detalle_portfolio(request.user)
     return Response(data)
 
-# 3. Evolución del Portfolio (Gráfico)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def evolucion_portfolio(request):
-    # Filtramos por el usuario actual
-    historicos = HistoricoPortfolio.objects.filter(usuario=request.user).order_by('fecha')
-    
-    data = []
-    for h in historicos:
-        data.append({
-            "fecha": h.fecha,
-            "invertido": h.total_invertido_usd,
-            "valor_actual": h.valor_actual_usd,
-            "ganancia": h.valor_actual_usd - h.total_invertido_usd
-        })
-    
+    data = obtener_evolucion_portfolio(request.user)
     return Response(data)
 
 # 4. Evolución de un Activo específico
