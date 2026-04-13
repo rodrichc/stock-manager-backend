@@ -13,6 +13,7 @@ from .models import Activo, HistoricoActivo, HistoricoPortfolio, Operacion, Posi
 from .services.twr import calcular_twr_periodo
 from .serializers import OperacionSerializer, ListarOperacionSerializer, RegistroSerializer
 from api.services.portfolio.resumen import calcular_resumen_portfolio
+from api.services.portfolio.detalle import calcular_detalle_portfolio
 
 
 User = get_user_model()
@@ -24,61 +25,11 @@ def resumen_portfolio(request):
     data = calcular_resumen_portfolio(request.user)
     return Response(data)
 
-# 2. Detalle de Tenencias por Acción
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def detalle_portfolio(request):
-    posiciones = Posicion.objects.filter(usuario=request.user, cantidad_nominales__gt=0)
-    detalles = []
-
-    for pos in posiciones:
-        acciones_enteras = Decimal(str(pos.cantidad_nominales)) / Decimal(str(pos.activo.ratio))
-        promedio = pos.precio_promedio_usd
-        actual = pos.activo.precio_actual_usd
-        
-        # ==========================================
-        # NUEVO: RENDIMIENTO DIARIO DEL ACTIVO
-        # ==========================================
-        # Buscamos la última "foto" que el bot le sacó a ESTE activo para ESTE usuario
-        ultimo_historico = HistoricoActivo.objects.filter(
-            snapshot_global__usuario=request.user,
-            activo=pos.activo
-        ).order_by('-snapshot_global__fecha').first()
-
-        rendimiento_diario_porcentaje = Decimal('0.0')
-        ganancia_diaria_usd = Decimal('0.0')
-
-        if ultimo_historico and ultimo_historico.precio_usd_diario > Decimal('0.0'):
-            precio_ayer = ultimo_historico.precio_usd_diario
-            
-            # Variación %: (Precio Hoy / Precio Ayer - 1) * 100
-            rendimiento_diario_porcentaje = ((actual / precio_ayer) - Decimal('1.0')) * Decimal('100.0')
-            
-            # Ganancia en $: (Precio Hoy - Precio Ayer) * Cantidad de Acciones
-            ganancia_diaria_usd = (actual - precio_ayer) * acciones_enteras
-        
-        # ==========================================
-
-        if promedio is not None and actual is not None:
-            detalles.append({
-                "ticker": pos.activo.ticker,
-                "nombre": pos.activo.nombre,
-                "nominales": pos.cantidad_nominales,
-                "precio_promedio": promedio,
-                "precio_actual": actual,
-                "bolsillo_usd": round(acciones_enteras * promedio, 2),
-                "valor_actual_usd": round(acciones_enteras * actual, 2),
-                
-                # Histórico (Desde que compraste)
-                "rendimiento_porcentaje": pos.rendimiento_porcentaje,
-                "ganancia_neta_usd": round((acciones_enteras * actual) - (acciones_enteras * promedio), 2),
-                
-                # Diario (Solo el movimiento de hoy)
-                "rendimiento_diario_porcentaje": round(rendimiento_diario_porcentaje, 2),
-                "ganancia_diaria_usd": round(ganancia_diaria_usd, 2)
-            })
-
-    return Response(detalles)
+    data = calcular_detalle_portfolio(request.user)
+    return Response(data)
 
 # 3. Evolución del Portfolio (Gráfico)
 @api_view(['GET'])
