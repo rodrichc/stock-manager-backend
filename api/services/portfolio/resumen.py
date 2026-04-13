@@ -1,8 +1,11 @@
 from decimal import Decimal
 from api.models import Posicion, HistoricoPortfolio, Cuenta
+from ..market import asegurar_precios_actualizados
 
 
 def calcular_resumen_portfolio(usuario):
+    cantidad_actualizada, mensaje = asegurar_precios_actualizados()
+
     posiciones = Posicion.objects.filter(
         usuario=usuario,
         cantidad_nominales__gt=0
