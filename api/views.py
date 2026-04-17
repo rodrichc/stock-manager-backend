@@ -8,9 +8,11 @@ from rest_framework import status, generics
 from decimal import Decimal
 from django.contrib.auth import get_user_model
 
-from api.services.mwr import calcular_portfolio_sombra_spy
-from .models import Activo, HistoricoPortfolio, Operacion
-from .services.twr import calcular_twr_periodo
+from api.services.metrics.mwr import calcular_portfolio_sombra_spy
+from api.services.metrics.rendimiento_real import calcular_rendimiento_real
+from api.utils.errors import AppError
+from .models import Activo, Operacion
+from .services.metrics.twr import calcular_twr_periodo
 from .serializers import OperacionSerializer, ListarOperacionSerializer, RegistroSerializer
 from api.services.portfolio.resumen import calcular_resumen_portfolio
 from api.services.portfolio.detalle import calcular_detalle_portfolio
@@ -54,52 +56,13 @@ def rendimiento_real(request):
     fecha_inicio_str = request.query_params.get('inicio')
     fecha_fin_str = request.query_params.get('fin')
     
-    if not fecha_inicio_str or not fecha_fin_str:
-        return Response({"error": "Faltan las fechas de inicio y fin"}, status=400)
+    try:
+        data = calcular_rendimiento_real(request.user, fecha_inicio_str, fecha_fin_str)
+        return Response(data)
+    except AppError as e:
+        return Response({"error": e.mensaje}, status=e.status_code)
 
-    # 1. BUSCAMOS LAS FOTOS SEGURAS EN LA BASE DE DATOS
-    # Si le pasamos un domingo, esto busca automáticamente la foto del viernes.
-    foto_inicio = HistoricoPortfolio.objects.filter(
-        usuario=request.user, 
-        fecha__lte=fecha_inicio_str
-    ).order_by('-fecha').first()
-    
-    foto_fin = HistoricoPortfolio.objects.filter(
-        usuario=request.user, 
-        fecha__lte=fecha_fin_str
-    ).order_by('-fecha').first()
 
-    if not foto_inicio or not foto_fin:
-        return Response({"error": "No hay fotos del portfolio guardadas cerca de esas fechas."}, status=400)
-
-    # Guardamos las fechas REALES de las fotos que encontramos
-    fecha_inicio_real = foto_inicio.fecha
-    fecha_fin_real = foto_fin.fecha
-
-    # 2. Calculamos tu TWR pasándole las fechas reales (para evitar que devuelva 0 por buscar un domingo)
-    resultado_twr = calcular_twr_periodo(request.user, fecha_inicio_real, fecha_fin_real)
-
-    # 3. Calculamos el rendimiento del SPY usando tu base de datos (¡Chau Yahoo Finance!)
-    rendimiento_spy = Decimal('0.0')
-    precio_spy_ini = foto_inicio.precio_spy_usd
-    precio_spy_fin = foto_fin.precio_spy_usd
-
-    if precio_spy_ini and precio_spy_fin and precio_spy_ini > Decimal('0.0'):
-        # La matemática del rendimiento. Si es el mismo día, naturalmente da 0.
-        rendimiento_spy = round(((precio_spy_fin / precio_spy_ini) - Decimal('1.0')) * Decimal('100.0'), 2)
-
-    # 4. Calculamos la diferencia (El famoso "Alpha")
-    diferencia_vs_spy = resultado_twr - rendimiento_spy
-
-    return Response({
-        "periodo_solicitado": f"{fecha_inicio_str} al {fecha_fin_str}",
-        "periodo_real_evaluado": f"{fecha_inicio_real} al {fecha_fin_real}",
-        "tu_rendimiento_twr": resultado_twr,
-        "rendimiento_spy": rendimiento_spy,
-        "alpha_diferencia": diferencia_vs_spy
-    })
-
-# 6. Cargar Compra o Venta
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def cargar_operacion(request):

@@ -4,7 +4,7 @@ from django.utils import timezone
 from decimal import Decimal
 import yfinance as yf
 from api.models import Activo, HistoricoPortfolio, HistoricoActivo, Posicion
-from api.services.mwr import calcular_portfolio_sombra_spy
+from api.services.metrics.mwr import calcular_portfolio_sombra_spy
 
 User = get_user_model()
 

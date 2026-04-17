@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from api.models import HistoricoPortfolio
-from api.services.mwr import calcular_portfolio_sombra_spy
+from api.services.metrics.mwr import calcular_portfolio_sombra_spy
 from datetime import datetime
 
 User = get_user_model()

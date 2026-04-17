@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timedelta
 from decimal import Decimal
 from collections import defaultdict
-from ..models import Operacion
+from ...models import Operacion
 
 def calcular_portfolio_sombra_spy(usuario):
     operaciones = Operacion.objects.filter(usuario=usuario).select_related('activo').order_by('fecha')

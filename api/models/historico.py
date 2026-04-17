@@ -27,6 +27,14 @@ class HistoricoPortfolio(models.Model):
     def __str__(self):
         username = self.usuario.username if self.usuario else "Sin Usuario"
         return f"Portfolio de {username} - {self.fecha}"
+    
+    @classmethod
+    def obtener_foto_con_fecha(cls, usuario, fecha):
+        foto = cls.objects.filter(
+            usuario=usuario,
+            fecha__lte=fecha
+        ).order_by('-fecha').first()
+        return foto
 
 
 class HistoricoActivo(models.Model):
