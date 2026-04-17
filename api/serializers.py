@@ -14,7 +14,6 @@ class OperacionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Operacion
-        # NUEVO: Agregamos tipo_operacion
         fields = ['id', 'tipo_operacion', 'activo', 'fecha', 'nominales', 'moneda', 'precio_unitario', 'dolar_ccl']
         read_only_fields = ['id']
 

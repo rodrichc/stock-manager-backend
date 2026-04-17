@@ -4,16 +4,16 @@ from datetime import datetime
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from rest_framework import status, generics
+from rest_framework import generics
 from decimal import Decimal
 from django.contrib.auth import get_user_model
 
 from api.services.metrics.mwr import calcular_portfolio_sombra_spy
 from api.services.metrics.rendimiento_real import calcular_rendimiento_real
+from api.services.operacion.cargar import cargar_operacion_service
 from api.utils.errors import AppError
 from .models import Activo, Operacion
-from .services.metrics.twr import calcular_twr_periodo
-from .serializers import OperacionSerializer, ListarOperacionSerializer, RegistroSerializer
+from .serializers import ListarOperacionSerializer, RegistroSerializer
 from api.services.portfolio.resumen import calcular_resumen_portfolio
 from api.services.portfolio.detalle import calcular_detalle_portfolio
 from api.services.portfolio.evolucion import obtener_evolucion_portfolio, obtener_evolucion_activo
@@ -66,18 +66,10 @@ def rendimiento_real(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def cargar_operacion(request):
-    serializer = OperacionSerializer(data=request.data)
-    
-    if serializer.is_valid():
-        try:
-            # Guardamos inyectando el usuario de la sesión automáticamente
-            serializer.save(usuario=request.user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        except ValueError as e:
-            # Atrapa el error si intenta vender más de lo que tiene (el que pusimos en models.py)
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-            
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        cargar_operacion_service(request.user, request.data)
+    except AppError as e:
+        return Response({"error": e.mensaje}, status=e.status_code)
 
 # 7. Listar TODAS las operaciones del usuario
 @api_view(['GET'])
