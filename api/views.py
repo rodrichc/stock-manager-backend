@@ -4,7 +4,7 @@ from datetime import datetime
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from rest_framework import generics
+from rest_framework import generics, status
 from decimal import Decimal
 from django.contrib.auth import get_user_model
 
@@ -67,7 +67,8 @@ def rendimiento_real(request):
 @permission_classes([IsAuthenticated])
 def cargar_operacion(request):
     try:
-        cargar_operacion_service(request.user, request.data)
+        data = cargar_operacion_service(request.user, request.data)
+        return Response(data, status=status.HTTP_201_CREATED)
     except AppError as e:
         return Response({"error": e.mensaje}, status=e.status_code)
 
