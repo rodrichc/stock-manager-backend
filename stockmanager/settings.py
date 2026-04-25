@@ -15,7 +15,25 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 # 3. Asignamos las variables de entorno
 SECRET_KEY = os.environ.get('SECRET_KEY')
-DEBUG = DEBUG = os.getenv('DEBUG', 'False') == 'True'
+
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
+
+if DEBUG:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR/'db.sqlite3',
+        }
+    }
+else:
+    DATABASES = {
+    'default': dj_database_url.config(
+        default=os.getenv('DATABASE_URL'),
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
+}
+
 
 hosts_env = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1")
 ALLOWED_HOSTS = [h.strip() for h in hosts_env.split(",") if h]
@@ -66,15 +84,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'stockmanager.wsgi.application'
-
-# --- DATABASE --
-DATABASES = {
-    'default': dj_database_url.config(
-        default=os.getenv('DATABASE_URL'),
-        conn_max_age=600,
-        conn_health_checks=True,
-    )
-}
 
 # --- PASSWORD VALIDATION ---
 AUTH_PASSWORD_VALIDATORS = [
