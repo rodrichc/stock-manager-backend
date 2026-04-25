@@ -11,6 +11,7 @@ from django.contrib.auth import get_user_model
 from api.services.metrics.mwr import calcular_portfolio_sombra_spy
 from api.services.metrics.rendimiento_real import calcular_rendimiento_real
 from api.services.operacion.cargar import cargar_operacion_service
+from api.services.operacion.listar import listar_operaciones_service
 from api.utils.errors import AppError
 from .models import Activo, Operacion
 from .serializers import ListarOperacionSerializer, RegistroSerializer
@@ -72,13 +73,12 @@ def cargar_operacion(request):
     except AppError as e:
         return Response({"error": e.mensaje}, status=e.status_code)
 
-# 7. Listar TODAS las operaciones del usuario
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def listar_operaciones(request):
-    operaciones = Operacion.objects.filter(usuario=request.user).order_by('-fecha', '-id')
-    serializer = ListarOperacionSerializer(operaciones, many=True)
-    return Response(serializer.data)
+    data = listar_operaciones_service(request.user)
+    return Response(data)
 
 # 8. Listar operaciones de UN activo para el usuario
 @api_view(['GET'])
