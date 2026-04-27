@@ -14,7 +14,7 @@ from api.services.operacion.cargar import cargar_operacion_service
 from api.services.operacion.listar import listar_operaciones_service
 from api.utils.errors import AppError
 from .models import Activo, Operacion
-from .serializers import ListarOperacionSerializer, RegistroSerializer
+from .serializers import RegistroSerializer
 from api.services.portfolio.resumen import calcular_resumen_portfolio
 from api.services.portfolio.detalle import calcular_detalle_portfolio
 from api.services.portfolio.evolucion import obtener_evolucion_portfolio, obtener_evolucion_activo
@@ -47,7 +47,7 @@ def evolucion_portfolio(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def evolucion_activo(request, ticker):
-    data = obtener_evolucion_activo(request.usuario, ticker)
+    data = obtener_evolucion_activo(request.user, ticker)
     return Response(data)
 
 
@@ -80,21 +80,17 @@ def listar_operaciones(request):
     data = listar_operaciones_service(request.user)
     return Response(data)
 
-# 8. Listar operaciones de UN activo para el usuario
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def listar_operaciones_por_activo(request, ticker):
-    operaciones = Operacion.objects.filter(
-        usuario=request.user, 
-        activo__ticker=ticker.upper()
-    ).order_by('-fecha', '-id')
-    
-    serializer = ListarOperacionSerializer(operaciones, many=True)
-    return Response(serializer.data)
+    data = listar_operaciones_service(request.user, ticker)
+    return Response(data)
+
 
 class RegistroUsuarioView(generics.CreateAPIView):
     queryset = User.objects.all()
-    permission_classes = [AllowAny] # ¡Cualquiera puede entrar a esta ruta!
+    permission_classes = [AllowAny] 
     serializer_class = RegistroSerializer
 
 
