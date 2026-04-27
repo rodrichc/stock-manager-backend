@@ -1,26 +1,36 @@
 import csv
 import io
 from datetime import datetime
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import APIView, api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from rest_framework import generics, status
+from rest_framework import status
 from decimal import Decimal
-from django.contrib.auth import get_user_model
 
+from api.utils.errors import AppError
+from .models import Activo, Operacion
+from .serializers import RegistroSerializer
+from api.services.auth.registro import registrar_usuario_service
 from api.services.metrics.mwr import calcular_portfolio_sombra_spy
 from api.services.metrics.rendimiento_real import calcular_rendimiento_real
 from api.services.operacion.cargar import cargar_operacion_service
 from api.services.operacion.listar import listar_operaciones_service
-from api.utils.errors import AppError
-from .models import Activo, Operacion
-from .serializers import RegistroSerializer
 from api.services.portfolio.resumen import calcular_resumen_portfolio
 from api.services.portfolio.detalle import calcular_detalle_portfolio
 from api.services.portfolio.evolucion import obtener_evolucion_portfolio, obtener_evolucion_activo
 
 
-User = get_user_model()
+
+class RegistroUsuarioView(APIView):
+    permission_classes = [AllowAny] 
+
+    def post(self, request):
+        serializer = RegistroSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        registrar_usuario_service(serializer.validated_data)
+        
+        return Response({"mensaje": "Usuario registrado con éxito"}, status=status.HTTP_201_CREATED)
 
 
 @api_view(['GET'])
@@ -86,12 +96,6 @@ def listar_operaciones(request):
 def listar_operaciones_por_activo(request, ticker):
     data = listar_operaciones_service(request.user, ticker)
     return Response(data)
-
-
-class RegistroUsuarioView(generics.CreateAPIView):
-    queryset = User.objects.all()
-    permission_classes = [AllowAny] 
-    serializer_class = RegistroSerializer
 
 
 @api_view(['GET'])
